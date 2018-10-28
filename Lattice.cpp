@@ -120,14 +120,19 @@ double Lattice::computeM(){
     return _M/_N;
 }
 
-void Lattice::PrintS(){
+void Lattice::PrintS(string filename){
     ofstream myfile;
-    myfile.open("IMAGES/output"+to_string(n_it)+".pgm");
+    myfile.open("IMAGES/"+filename+".pgm");
     myfile<<"P2"<<endl<<_L<<" "<<_L<<endl<<"255"<<endl;
     for(int i=0; i<_N; i++){
         myfile<<(_S[i]+1)*127<<endl;
     }
     myfile.close();
+}
+
+void Lattice::PrintS(){
+    string filename="output"+to_string(n_it);
+    this->PrintS(filename);
     n_it++;
 }
 

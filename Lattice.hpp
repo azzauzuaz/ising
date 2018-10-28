@@ -15,6 +15,7 @@ public:
     double computeE();
     double computeM();
     void PrintS();
+    void PrintS(std::string);
     int GetS(int pos);
 
 private:
