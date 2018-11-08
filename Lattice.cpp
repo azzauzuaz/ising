@@ -9,7 +9,6 @@ Lattice::Lattice(int L, double J, double T, int Seed, int Initial_config){
     _L=L;
     _N=L*L;
     _J=J;
-    _T=T;
 
     RND.seed(Seed);
 
@@ -62,8 +61,7 @@ int Lattice::WolffClusterMove(){
         advance(it,uniform(RND)*Pocket.size());
         int j=*it;
         for(int n=0; n<4; n++){
-            const bool nbr_not_in_C = Cluster.find(_nbr[j][n]) == Cluster.end();
-            if(_S[_nbr[j][n]]==_S[j] && nbr_not_in_C && uniform(RND)<p ){
+            if(_S[_nbr[j][n]]==_S[j] && uniform(RND)<p && Cluster.find(_nbr[j][n]) == Cluster.end()){
                 Pocket.insert(_nbr[j][n]);
                 Cluster.insert(_nbr[j][n]);
             }

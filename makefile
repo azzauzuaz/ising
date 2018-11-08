@@ -8,5 +8,3 @@ Histogram.o: Histogram.cpp Histogram.hpp
 	g++ -c Histogram.cpp -o Histogram.o
 clean:
 	rm -r *.o
-clear:
-	rm -r *.dat IMAGES/*.pgm

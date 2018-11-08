@@ -11,6 +11,7 @@ public:
     Lattice(int L, double J, double T, int Seed, int Initial_config);
     ~Lattice();
     int MetropolisMove();
+    int FastMetropolisMove();
     int WolffClusterMove();
     double computeE();
     double computeM();
@@ -23,7 +24,6 @@ private:
     int** _nbr;
     int _N;
     double _J;
-    double _T;
     int _L;
 
     double p;

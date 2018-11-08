@@ -15,6 +15,8 @@ int N_EQUILIBRATION_WOLFF_STEPS;
 int N_EQUILIBRATION_METROPOLIS_STEPS;
 int R_CORR;
 int T_CORR;
+int T_CORR_STEP;
+bool ABS_MAGN;
 
 int N;
 
@@ -24,11 +26,13 @@ int StepPerBlock;
 
 double* corr_func;
 double* avg_corr_func;
+double* avg_corr_func2;
 double* sisj;
 double* sum_sisj;
 
 int t_count=0;
 double* avg_t_corr_func;
+double* avg_t_corr_func2;
 double* t_corr_func;
 double* m_history;
 
@@ -48,6 +52,8 @@ double error_E=0, error_M=0;
 double error_Cv=0, error_chi=0;
 double global_E=0, global_M=0, global_M2=0, global_E2=0;
 double global_Cv=0, global_Cv2=0, global_chi=0, global_chi2=0;
+
+//time measurement
 
 clock_t begin_time;
 clock_t end_time;

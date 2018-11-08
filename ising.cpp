@@ -83,6 +83,13 @@ void Input(){
 
     StepPerBlock=N_WOLFF_STEPS_PER_BLOCK+N_METROPOLIS_STEPS_PER_BLOCK;
 
+    if(IDUM==-1){
+        IDUM=time(NULL);
+        cout<<"Seed generated with time(NULL)"<<endl;
+    }
+    if(ABS_MAGN)
+        cout<<"Simulation will compute absolute magnetization"<<endl;
+
     S=new Lattice(L, J, T, IDUM, INITIAL_CONFIG);
 
     N=L*L;
@@ -93,15 +100,19 @@ void Input(){
     sum_sisj=new double[R_CORR];
     corr_func=new double[R_CORR];
     avg_corr_func=new double[R_CORR];
+    avg_corr_func2=new double[R_CORR];
     for(int r=0; r<R_CORR; r++){
         avg_corr_func[r]=0;
+        avg_corr_func2[r]=0;
     }
 
-    m_history=new double[T_CORR];
-    t_corr_func=new double[T_CORR];
-    avg_t_corr_func=new double[T_CORR];
-    for(int t=0; t<T_CORR; t++){
+    m_history=new double[StepPerBlock];
+    t_corr_func=new double[T_CORR+1];
+    avg_t_corr_func=new double[T_CORR+1];
+    avg_t_corr_func2=new double[T_CORR+1];
+    for(int t=0; t<T_CORR+1; t++){
         avg_t_corr_func[t]=0;
+        avg_t_corr_func2[t]=0;
     }
 
     S->PrintS("0start");
@@ -119,15 +130,20 @@ void Reset(){
     for(int r=0; r<R_CORR; r++){
         sum_sisj[r]=0;
     }
-    for(int t=0; t<T_CORR; t++){
+
+    for(int t=0; t<T_CORR+1; t++){
         t_corr_func[t]=0;
     }
+    t_count=0;
+
 }
 
 void Measure(){
 
     _E=S->computeE();
     _M=S->computeM();
+    if(ABS_MAGN)
+        _M=abs(_M);
     _E2=_E*_E;
     _M2=_M*_M;
 
@@ -150,20 +166,6 @@ void Measure(){
         }
     }
 
-    //spostare dentro Accumulate ?
-    //nota che se T_CORR è maggiore del numero di steps per block ci sono problemi
-    if(block_norm>0){
-        double m_avg=global_M/block_norm;
-        for(int t=0; t<T_CORR; t++)
-            t_corr_func[t]+=(_M-m_avg)*(m_history[ (T_CORR+( (t_count-t-1)%T_CORR ))%T_CORR ]-m_avg);
-
-    }
-
-    m_history[t_count]=_M;
-    t_count++;
-    if(t_count==T_CORR)
-        t_count=0;
-
 }
 
 void Accumulate(){
@@ -175,26 +177,29 @@ void Accumulate(){
     for(int r=0; r<R_CORR; r++){
         sum_sisj[r]+=sisj[r];
     }
+
+    m_history[StepPerBlock-t_count]=_M;
+    t_count++;
 }
 
 void Average(){
 
-    int wd=12;
+    int wd=14;
 
     double energy=sum_E/StepPerBlock;
     double magnetization=sum_M/StepPerBlock;
-    double heat_capacity=(sum_E2/StepPerBlock-energy*energy)/(T*T);
-    double magnetic_susceptibility=(sum_M2/StepPerBlock-magnetization*magnetization)/T;
+    double specific_heat=(N*N*sum_E2/StepPerBlock-N*N*energy*energy)/(T*T);
+    double magnetic_susceptibility=(N*N*sum_M2/StepPerBlock-N*N*magnetization*magnetization)/T;
 
     ofstream en_output, magn_output, susc_output, spec_heat_output;
     ofstream corr_output, corr_time_output;
     ofstream corr_avg_output, avg_corr_time_output;
-    en_output.open("internal_energy.dat", ios::app);
+    en_output.open("energy.dat", ios::app);
     magn_output.open("magnetization.dat", ios::app);
     corr_output.open("correlation_function.dat", ios::app);
     corr_time_output.open("correlation_time.dat", ios::app);
-    susc_output.open("magnetic_susceptibility.dat", ios::app);
-    spec_heat_output.open("heat_capacity.dat", ios::app);
+    susc_output.open("susceptibility.dat", ios::app);
+    spec_heat_output.open("specific_heat.dat", ios::app);
     corr_avg_output.open("average_correlation_function.dat", ios::trunc);
     avg_corr_time_output.open("average_correlation_time.dat", ios::trunc);
 
@@ -203,17 +208,38 @@ void Average(){
     for(int r=0; r<R_CORR; r++){
         corr_func[r]=sum_sisj[r]/StepPerBlock - magnetization*magnetization;
         avg_corr_func[r]+=corr_func[r];
+        avg_corr_func2[r]+=corr_func[r]*corr_func[r];
 
         corr_output<<setw(wd)<<r+1<<setw(wd)<<corr_func[r]<<endl;
-        corr_avg_output<<setw(wd)<<r+1<<setw(wd)<<avg_corr_func[r]/block_norm<<endl;
+        corr_avg_output<<setw(wd)<<r+1<<setw(wd)<<avg_corr_func[r]/block_norm<<setw(wd)<<Error(avg_corr_func[r],avg_corr_func2[r],block_norm)<<endl;
     }
 
-    for(int t=0; t<T_CORR; t++){
-        avg_t_corr_func[t]+=t_corr_func[t];
-        t_corr_func[t]=t_corr_func[t]/StepPerBlock;
+    double sum1=0;
+    double sum2=0;
+    double sum3=0;
+    for(int tp=0; tp<StepPerBlock; tp++){
+        sum1+=m_history[tp]*m_history[tp];
+        sum2+=m_history[tp];
+        sum3+=m_history[tp];
+    }
+    double t_corr_norm=1./StepPerBlock*sum1-1./StepPerBlock*sum2*1./StepPerBlock*sum3;
 
-        corr_time_output<<setw(wd)<<t+1<<setw(wd)<<t_corr_func[t]<<endl;
-        avg_corr_time_output<<setw(wd)<<t+1<<setw(wd)<<avg_t_corr_func[t]/(StepPerBlock*(block_norm-1))<<endl;
+
+    for(int t=0; t<T_CORR+1; t=t+T_CORR_STEP){
+        sum1=0;
+        sum2=0;
+        sum3=0;
+        for(int tp=0; tp<StepPerBlock-t; tp++){
+            sum1+=m_history[tp]*m_history[t+tp];
+            sum2+=m_history[tp];
+            sum3+=m_history[t+tp];
+        }
+        t_corr_func[t]=1./(StepPerBlock-t)*sum1-1./(StepPerBlock-t)*sum2*1./(StepPerBlock-t)*sum3;
+        t_corr_func[t]=t_corr_func[t]/t_corr_norm;
+        corr_time_output<<setw(wd)<<t<<setw(wd)<<t_corr_func[t]<<endl;
+        avg_t_corr_func[t]+=t_corr_func[t];
+        avg_t_corr_func2[t]+=t_corr_func[t]*t_corr_func[t];
+        avg_corr_time_output<<setw(wd)<<t<<setw(wd)<<avg_t_corr_func[t]/block_norm<<setw(wd)<<Error(avg_t_corr_func[t], avg_t_corr_func2[t], block_norm)<<endl;
     }
 
     global_E+=energy;
@@ -223,17 +249,17 @@ void Average(){
     error_E=Error(global_E, global_E2, block_norm);
     error_M=Error(global_M, global_M2, block_norm);
 
-    global_Cv+=heat_capacity;
-    global_chi+=magnetic_susceptibility;
-    global_Cv2+=heat_capacity*heat_capacity;
-    global_chi2+=magnetic_susceptibility*magnetic_susceptibility;
+    global_Cv+=specific_heat/N;
+    global_chi+=magnetic_susceptibility/N;
+    global_Cv2+=specific_heat/N*specific_heat/N;
+    global_chi2+=magnetic_susceptibility/N*magnetic_susceptibility/N;
     error_Cv=Error(global_Cv, global_Cv2, block_norm);
     error_chi=Error(global_chi, global_chi2, block_norm);
 
     en_output<<setw(wd)<<block_norm<<setw(wd)<<energy<<setw(wd)<<global_E/block_norm<<setw(wd)<<error_E<<endl;
     magn_output<<setw(wd)<<block_norm<<setw(wd)<<magnetization<<setw(wd)<<global_M/block_norm<<setw(wd)<<error_M<<endl;
-    susc_output<<setw(wd)<<block_norm<<setw(wd)<<magnetic_susceptibility<<setw(wd)<<global_chi/block_norm<<setw(wd)<<error_chi<<endl;
-    spec_heat_output<<setw(wd)<<block_norm<<setw(wd)<<heat_capacity<<setw(wd)<<global_Cv/block_norm<<setw(wd)<<error_Cv<<endl;
+    susc_output<<setw(wd)<<block_norm<<setw(wd)<<magnetic_susceptibility/N<<setw(wd)<<global_chi/block_norm<<setw(wd)<<error_chi<<endl;
+    spec_heat_output<<setw(wd)<<block_norm<<setw(wd)<<specific_heat/N<<setw(wd)<<global_Cv/block_norm<<setw(wd)<<error_Cv<<endl;
 
     en_output.close();
     magn_output.close();
@@ -261,24 +287,22 @@ void PrintFinal(){
 
     int wd=12;
 
-    cout<<"E:            "<<global_E/block_norm<<endl;
-    cout<<"St. dev. E:   "<<error_E<<endl;
-    cout<<"M:            "<<global_M/block_norm<<endl;
-    cout<<"St. dev. M:   "<<error_M<<endl;
-    cout<<"Cv:           "<<global_Cv/block_norm<<endl;
-    cout<<"St. dev. Cv:  "<<error_Cv<<endl;
-    cout<<"Chi:          "<<global_chi/block_norm<<endl;
-    cout<<"St. dev. chi: "<<error_chi<<endl<<endl;
+    cout<<setw(4)<<"E:"<<setw(wd)<<global_E/block_norm<<setw(4)<<"±"<<setw(wd)<<error_E<<endl;
+    cout<<setw(4)<<"M:"<<setw(wd)<<global_M/block_norm<<setw(4)<<"±"<<setw(wd)<<error_M<<endl;
+    cout<<setw(4)<<"Cv:"<<setw(wd)<<global_Cv/block_norm<<setw(4)<<"±"<<setw(wd)<<error_Cv<<endl;
+    cout<<setw(4)<<"Chi:"<<setw(wd)<<global_chi/block_norm<<setw(4)<<"±"<<setw(wd)<<error_chi<<endl;
 
     hist->print_hist("cluster_histogram.dat");
 
     delete[] sisj;
     delete[] corr_func;
     delete[] avg_corr_func;
+    delete[] avg_corr_func2;
     delete[] sum_sisj;
     delete[] m_history;
     delete[] t_corr_func;
     delete[] avg_t_corr_func;
+    delete[] avg_t_corr_func2;
     delete S;
     delete hist;
 
@@ -349,6 +373,14 @@ void Read_From_File(string filename){
         if (word=="T_CORR") {
             read>> temp;
             T_CORR=stoi(temp);
+        }
+        if (word=="ABS_MAGN") {
+            read>> temp;
+            ABS_MAGN=stoi(temp);
+        }
+        if (word=="T_CORR_STEP") {
+            read>> temp;
+            T_CORR_STEP=stoi(temp);
         }
 
     }
