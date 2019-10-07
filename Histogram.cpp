@@ -36,7 +36,7 @@ void Histogram::print_hist(string histname){
     output.open(histname);
     double x_pos=_x_min+_bin_width/2.;
     for(int i=0; i<_n_bin; i++){
-        output<<x_pos<<"  "<<(double)_hist[i]/_hist_norm<<endl;
+        output<<x_pos<<"  "<<(double)_hist[i]/(_hist_norm*_bin_width)<<endl;
         x_pos+=_bin_width;
     }
 }
